@@ -171,6 +171,8 @@ void brand()
 
 	if(signature.family != 0xF)
 		printf("Extended Family: %X\n", signature.family_ext + signature.family);
+
+	printf("\n");
 }
 
 void features()
@@ -194,7 +196,7 @@ void features()
 	features.ecx.f16c &= features.ecx.avx;
 	features.ecx.fma  &= features.ecx.avx;
 
-	printf("\nFeatures:\n");
+	printf("Features:\n");
 
 	// print the features encoded in edx
 	for(uint32_t i = 0; i < EDX_FEATURES_SIZE; ++i)
