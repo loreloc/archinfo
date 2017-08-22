@@ -78,7 +78,8 @@ void vendor();
 void brand();
 void features();
 void cache_tlb();
-void cache();
+void caches();
+void frequencies();
 
 int main(int argc, char* argv[])
 {
@@ -105,8 +106,11 @@ int main(int argc, char* argv[])
 	// print cache and tlb informations
 	cache_tlb();
 
-	// print the cache informations
-	cache();
+	// print the caches informations
+	caches();
+
+	// print cpu frequencies and bus frequency
+	frequencies();
 
 	return 0;
 }
@@ -146,9 +150,9 @@ void brand()
 		const char* brand = BrandStrings[ebx & 0xFF];
 
 		if(brand != NULL)
-			printf("Brand: %s\n", brand);
+			printf("Brand: %s\n\n", brand);
 		else
-			printf("Brand: <Unknow>\n");
+			printf("Brand: <Unknow>\n\n");
 	}
 	else
 	{
@@ -159,10 +163,10 @@ void brand()
 		CPUID(0x80000003, brand[ 4], brand[ 5], brand[ 6], brand[ 7]);
 		CPUID(0x80000004, brand[ 8], brand[ 9], brand[10], brand[11]);
 
-		printf("Brand: %s\n", (char*)brand);
+		printf("Brand: %s\n\n", (char*)brand);
 	}
 
-	printf("\nStepping ID: %X\n", signature.stepping);
+	printf("Stepping ID: %X\n", signature.stepping);
 	printf("Model: %X\n", signature.model);
 	printf("Family: %X\n", signature.family);
 
@@ -177,7 +181,6 @@ void brand()
 
 void features()
 {
-	uint64_t xcr0;
 	uint32_t eax, ebx, edx;
 
 	cpu_features_t features;
@@ -187,7 +190,7 @@ void features()
 	CPUID(0x1, eax, ebx, features.ecx.value, features.edx.value);
 
 	// check the osxsave feature and set the xcr0 register state
-	xcr0 = (features.ecx.osxsave) ? xcr0_state() : 0;
+	uint64_t xcr0 = (features.ecx.osxsave) ? xcr0_state() : 0;
 
 	// check the avx feature bit validity
 	features.ecx.avx &= (xcr0 & 0x6) == 0x6;
@@ -301,7 +304,7 @@ int cache_info(cpu_cache_t* cache, uint32_t subleaf)
 	return eax;
 }
 
-void cache()
+void caches()
 {
 	// check the maximum cpuid leaf
 	if(MaxLeaf < 0x4)
@@ -322,5 +325,32 @@ void cache()
 
 		subleaf++;
 	}
+}
+
+void frequencies()
+{
+	// check the maximum cpuid leaf
+	if(MaxLeaf < 0x16)
+		return;
+
+	uint32_t eax, ebx, ecx, edx;
+
+	// get frequencies informations
+	CPUID(0x16, eax, ebx, ecx, edx);
+
+	float cpu_base_freq = (float)(eax) / 1000.0f;
+	float cpu_max_freq  = (float)(ebx) / 1000.0f;
+	float bus_freq      = (float)(ecx) / 1000.0f;
+
+	if(eax != 0)
+		printf("Cpu base frequency: %f\n", cpu_base_freq);
+
+	if(ebx != 0)
+		printf("Cpu maximum frequency: %f\n", cpu_max_freq);
+
+	if(ecx != 0)
+		printf("Bus (referenced) frequency: %f\n", bus_freq);
+
+	printf("\n");
 }
 
