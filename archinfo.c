@@ -338,18 +338,14 @@ void frequencies()
 	// get frequencies informations
 	CPUID(0x16, eax, ebx, ecx, edx);
 
-	float cpu_base_freq = (float)(eax) / 1000.0f;
-	float cpu_max_freq  = (float)(ebx) / 1000.0f;
-	float bus_freq      = (float)(ecx) / 1000.0f;
-
 	if(eax != 0)
-		printf("Cpu base frequency: %f\n", cpu_base_freq);
+		printf("Cpu base frequency: %f GHz\n", (float)eax / 1000.0f);
 
 	if(ebx != 0)
-		printf("Cpu maximum frequency: %f\n", cpu_max_freq);
+		printf("Cpu maximum frequency: %f GHz\n", (float)ebx / 1000.0f);
 
 	if(ecx != 0)
-		printf("Bus (referenced) frequency: %f\n", bus_freq);
+		printf("Bus (reference) frequency: %f MHz\n", (float)ecx);
 
 	printf("\n");
 }
