@@ -135,6 +135,43 @@ void vendor()
 	printf("Vendor ID: %s\n\n", vendor.id);
 }
 
+const char* microarch_info(uint32_t model_num)
+{
+	// https://software.intel.com/en-us/articles/intel-architecture-and-processor-identification-with-cpuid-model-and-family-numbers
+	
+	switch(model_num)
+	{
+	// TODO: Older microarchitectures
+	case 0x03: case 0x04:
+		return "Prescott - 90 nm";
+	case 0x06:
+		return "Presler - 65 nm";
+	case 0x0D:
+		return "Dothan - 90 nm";
+	case 0x0F: case 0x16:
+		return "Merom - 65 nm";
+	case 0x17: case 0x1D:
+		return "Penryn - 45 nm";
+	case 0x1A: case 0x1E: case 0x2E:
+		return "Nehalem - 45 nm";
+	case 0x25: case 0x2C: case 0x2F:
+		return "Westmere - 32 nm";
+	case 0x2A: case 0x2D:
+		return "SandyBridge - 32 nm";
+	case 0x3A:
+		return "IvyBridge - 22 nm";
+	case 0x3C:
+		return "Haswell - 22 nm";
+	case 0x3D:
+		return "Broadwell - 14 nm";
+	case 0x5E:
+		return "Skylake - 14 nm";
+	// TODO: New microarchitectures
+	default:
+		return "<Unknow>";
+	}
+}
+
 void brand()
 {
 	uint32_t ebx, ecx, edx;
@@ -149,10 +186,7 @@ void brand()
 		// use the brand string table
 		const char* brand = BrandStrings[ebx & 0xFF];
 
-		if(brand != NULL)
-			printf("Brand: %s\n\n", brand);
-		else
-			printf("Brand: <Unknow>\n\n");
+		printf("Brand: %s\n\n", (brand != NULL) ? brand : "<Unknow>");
 	}
 	else
 	{
@@ -170,13 +204,22 @@ void brand()
 	printf("Model: %X\n", signature.model);
 	printf("Family: %X\n", signature.family);
 
+	uint32_t model_number = signature.model;
+
 	if(signature.family == 0x6 || signature.family == 0xF)
-		printf("Extended Model: %X\n", (signature.model_ext << 4) | signature.model);
+	{
+		model_number |= (signature.model_ext << 4);
+
+		printf("Extended Model: %X\n", model_number);
+	}
 
 	if(signature.family != 0xF)
 		printf("Extended Family: %X\n", signature.family_ext + signature.family);
 
 	printf("\n");
+
+	// print informations about the microarchitecture
+	printf("Microarchitecture: %s\n\n", microarch_info(model_number));
 }
 
 void features()
