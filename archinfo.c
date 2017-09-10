@@ -138,25 +138,43 @@ void vendor()
 const char* microarch_info(uint32_t model_num)
 {
 	// https://software.intel.com/en-us/articles/intel-architecture-and-processor-identification-with-cpuid-model-and-family-numbers
-	
+	// https://en.wikipedia.org/wiki/List_of_Intel_CPU_microarchitectures
+	//
+	// TODO: Older microarchitectures identification
+
 	switch(model_num)
 	{
-	// TODO: Older microarchitectures
-	case 0x03: case 0x04:
+	// atom microarchitectures
+	case 0x1C:
+	case 0x26:
+		return "Atom - 45 nm";
+	case 0x36:
+		return "Atom - 32 nm";
+
+	// mainline microarchitectures
+	case 0x03:
+	case 0x04:
 		return "Prescott - 90 nm";
 	case 0x06:
 		return "Presler - 65 nm";
 	case 0x0D:
 		return "Dothan - 90 nm";
-	case 0x0F: case 0x16:
+	case 0x0F:
+	case 0x16:
 		return "Merom - 65 nm";
-	case 0x17: case 0x1D:
+	case 0x17:
+	case 0x1D:
 		return "Penryn - 45 nm";
-	case 0x1A: case 0x1E: case 0x2E:
+	case 0x1A:
+	case 0x1E:
+	case 0x2E:
 		return "Nehalem - 45 nm";
-	case 0x25: case 0x2C: case 0x2F:
+	case 0x25:
+	case 0x2C:
+	case 0x2F:
 		return "Westmere - 32 nm";
-	case 0x2A: case 0x2D:
+	case 0x2A:
+	case 0x2D:
 		return "SandyBridge - 32 nm";
 	case 0x3A:
 		return "IvyBridge - 22 nm";
@@ -166,7 +184,9 @@ const char* microarch_info(uint32_t model_num)
 		return "Broadwell - 14 nm";
 	case 0x5E:
 		return "Skylake - 14 nm";
-	// TODO: New microarchitectures
+	case 0x9E:
+		return "KabyLake - 14 nm";
+
 	default:
 		return "<Unknow>";
 	}
