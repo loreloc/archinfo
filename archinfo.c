@@ -20,11 +20,25 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "archinfo.h"
 
-// max cpuid leaves
-uint32_t MaxLeaf, MaxExtLeaf;
+// maximum cpuid leaf
+uint32_t MaxLeaf = 0;
+
+// maximum cpuid extended leaf
+uint32_t MaxExtLeaf = 0;
+
+// xcr0 register state
+uint32_t XCR0 = 0;
+
+// cpu features
+cpu_features_t features = { 0 };
+
+// cpu extended features
+cpu_features_ext_t features_ext = { 0 };
 
 
 uint64_t xcr0_state()
@@ -73,12 +87,12 @@ int cpuid_available()
 #endif
 }
 
-void maximum_leaves();
-void vendor();
-void brand();
-void features();
+void max_leaf_vendor();
+void max_ext_leaf();
+void sign_brand_features();
 void cache_tlb();
 void caches();
+void ext_features();
 void frequencies();
 
 int main(int argc, char* argv[])
@@ -91,48 +105,47 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	// get maximum cpuid leaves
-	maximum_leaves();
+	// get the maximum cpuid leaf and print the cpu vendor id
+	max_leaf_vendor();
 
-	// print the vendor id
-	vendor();
+	// get the maximum cpuid extended leaf
+	max_ext_leaf();
 
-	// print brand informations
-	brand();
+	// print the signature, the brand and the features of the cpu
+	sign_brand_features();
 
-	// print the features
-	features();
+	// print the extended features of the cpu
+	ext_features();
 
-	// print cache and tlb informations
+	// print the cpu base and maximum frequencies and the bus frequency
+	frequencies();
+
+	// print informations about the cache and the tlb
 	cache_tlb();
 
-	// print the caches informations
+	// print informations about the caches
 	caches();
-
-	// print cpu frequencies and bus frequency
-	frequencies();
 
 	return 0;
 }
 
-void maximum_leaves()
+void max_leaf_vendor()
 {
-	uint32_t ebx, ecx, edx;
-
-	CPUID(0x0, MaxLeaf, ebx, ecx, edx);
-	CPUID(0x80000000, MaxExtLeaf, ebx, ecx, edx);
-}
-
-void vendor()
-{
-	uint32_t eax;
 	cpu_vendor_t vendor = { 0 };
 
-	// get the vendor id string
-	CPUID(0x0, eax, vendor.dword0, vendor.dword2, vendor.dword1);
+	// get the maximum cpuid leaf and cpu vendor id
+	CPUID(0x0, MaxLeaf, vendor.dword0, vendor.dword2, vendor.dword1);
 
 	// print the vendor id
 	printf("Vendor ID: %s\n\n", vendor.id);
+}
+
+void max_ext_leaf()
+{
+	uint32_t ebx, ecx, edx;
+
+	// get the maximum cpuid extended leaf
+	CPUID(0x80000000, MaxExtLeaf, ebx, ecx, edx);
 }
 
 const char* microarch_info(uint32_t model_num)
@@ -192,72 +205,63 @@ const char* microarch_info(uint32_t model_num)
 	}
 }
 
-void brand()
+void sign_brand_features()
 {
-	uint32_t ebx, ecx, edx;
 	cpu_signature_t signature;
+	uint32_t brand_index;
 
-	// get cpuid leaf 0x1 informations
-	CPUID(0x1, signature.value, ebx, ecx, edx);
+	// get the cpu signature, brand index and basic features
+	CPUID(0x1, signature.value, brand_index, features.ecx.value, features.edx.value);
+
+	uint32_t brand[12] = { 0 };
 
 	// check the maximum cpuid extension leaf
 	if(MaxExtLeaf < 0x80000004)
 	{
-		// use the brand string table
-		const char* brand = BrandStrings[ebx & 0xFF];
-
-		printf("Brand: %s\n\n", (brand != NULL) ? brand : "<Unknow>");
+		// copy the brand string
+		strcpy((char*)brand, BrandStrings[brand_index & 0xFF]);
 	}
 	else
 	{
-		uint32_t brand[12];
-
 		// get the brand string
 		CPUID(0x80000002, brand[ 0], brand[ 1], brand[ 2], brand[ 3]);
 		CPUID(0x80000003, brand[ 4], brand[ 5], brand[ 6], brand[ 7]);
 		CPUID(0x80000004, brand[ 8], brand[ 9], brand[10], brand[11]);
-
-		printf("Brand: %s\n\n", (char*)brand);
 	}
 
+	// print the brand string
+	printf("Brand: %s\n\n", (char*)brand);
+
+	// print the stepping id, model and family of the cpu
 	printf("Stepping ID: %X\n", signature.stepping);
 	printf("Model: %X\n", signature.model);
 	printf("Family: %X\n", signature.family);
 
-	uint32_t model_number = signature.model;
+	uint32_t model_num = signature.model;
 
+	// check the extended model number
 	if(signature.family == 0x6 || signature.family == 0xF)
 	{
-		model_number |= (signature.model_ext << 4);
+		model_num |= (signature.model_ext << 4);
 
-		printf("Extended Model: %X\n", model_number);
+		printf("Extended Model: %X\n", model_num);
 	}
 
+	// check the extended family
 	if(signature.family != 0xF)
 		printf("Extended Family: %X\n", signature.family_ext + signature.family);
 
 	printf("\n");
 
 	// print informations about the microarchitecture
-	printf("Microarchitecture: %s\n\n", microarch_info(model_number));
-}
-
-void features()
-{
-	uint32_t eax, ebx, edx;
-
-	cpu_features_t features;
-	cpu_features_ext_t features_ext;
-
-	// get the cpu features
-	CPUID(0x1, eax, ebx, features.ecx.value, features.edx.value);
+	printf("Microarchitecture: %s\n\n", microarch_info(model_num));
 
 	// check the osxsave feature and set the xcr0 register state
-	uint64_t xcr0 = (features.ecx.osxsave) ? xcr0_state() : 0;
+	XCR0 = (features.ecx.osxsave) ? xcr0_state() : 0;
 
 	// check the avx feature bit validity
-	features.ecx.avx &= (xcr0 & 0x6) == 0x6;
-
+	features.ecx.avx &= (XCR0 & 0x6) == 0x6;
+		
 	// check the f16c and fma feature bits validity
 	features.ecx.f16c &= features.ecx.avx;
 	features.ecx.fma  &= features.ecx.avx;
@@ -273,39 +277,6 @@ void features()
 	for(uint32_t i = 0; i < ECX_FEATURES_SIZE; ++i)
 		if(features.ecx.value & EcxFeatures[i].mask)
 			printf("%s ", EcxFeatures[i].name);
-
-	printf("\n\n");
-
-	// check the maximum cpuid leaf
-	if(MaxLeaf < 0x7)
-		return;
-
-	// get the cpu extended features
-	CPUID_EXT(0x7, 0x0, eax, features_ext.ebx.value, features_ext.ecx.value, edx);
-
-	// check the avx2 feature bit validity
-	features_ext.ebx.avx2 &= features.ecx.avx;
-
-	// check the avx512 feature bits validity
-	features_ext.ebx.avx512f  &= (xcr0 & 0xE6) == 0xE6;
-	features_ext.ebx.avx512dq &= features_ext.ebx.avx512f;
-	features_ext.ebx.avx512pf &= features_ext.ebx.avx512f;
-	features_ext.ebx.avx512er &= features_ext.ebx.avx512f;
-	features_ext.ebx.avx512cd &= features_ext.ebx.avx512f;
-	features_ext.ebx.avx512bw &= features_ext.ebx.avx512f;
-	features_ext.ebx.avx512vl &= features_ext.ebx.avx512f;
-
-	printf("Extended Features:\n");
-
-	// print the extended features encoded in ebx
-	for(uint32_t i = 0; i < EBX_EXT_FEATURES_SIZE; ++i)
-		if(features_ext.ebx.value & EbxExtFeatures[i].mask)
-			printf("%s ", EbxExtFeatures[i].name);
-
-	// print the extended features encoded in ecx
-	for(uint32_t i = 0; i < ECX_EXT_FEATURES_SIZE; ++i)
-		if(features.ecx.value & EcxExtFeatures[i].mask)
-			printf("%s ", EcxExtFeatures[i].name);
 
 	printf("\n\n");
 }
@@ -376,7 +347,7 @@ void caches()
 	cpu_cache_t cache;
 	uint32_t subleaf = 0;
 
-	// check every cache
+	// retrieve informations about every cache
 	while(cache_info(&cache, subleaf))
 	{
 		printf("Cache Level %d %s:\n", cache.level, CacheTypeStrings[cache.type]);
@@ -387,7 +358,45 @@ void caches()
 		printf("%d byte line size\n\n", cache.line_size);
 
 		subleaf++;
-	}
+	}	
+}
+
+void ext_features()
+{
+	// check the maximum cpuid leaf
+	if(MaxLeaf < 0x7)
+		return;
+
+	uint32_t eax, edx;
+
+	// get the cpu extended features
+	CPUID_EXT(0x7, 0x0, eax, features_ext.ebx.value, features_ext.ecx.value, edx);
+
+	// check the avx2 feature bit validity
+	features_ext.ebx.avx2 &= features.ecx.avx;
+
+	// check the avx512 feature bits validity
+	features_ext.ebx.avx512f  &= (XCR0 & 0xE6) == 0xE6;
+	features_ext.ebx.avx512dq &= features_ext.ebx.avx512f;
+	features_ext.ebx.avx512pf &= features_ext.ebx.avx512f;
+	features_ext.ebx.avx512er &= features_ext.ebx.avx512f;
+	features_ext.ebx.avx512cd &= features_ext.ebx.avx512f;
+	features_ext.ebx.avx512bw &= features_ext.ebx.avx512f;
+	features_ext.ebx.avx512vl &= features_ext.ebx.avx512f;
+
+	printf("Extended Features:\n");
+
+	// print the extended features encoded in ebx
+	for(uint32_t i = 0; i < EBX_EXT_FEATURES_SIZE; ++i)
+		if(features_ext.ebx.value & EbxExtFeatures[i].mask)
+			printf("%s ", EbxExtFeatures[i].name);
+
+	// print the extended features encoded in ecx
+	for(uint32_t i = 0; i < ECX_EXT_FEATURES_SIZE; ++i)
+		if(features_ext.ecx.value & EcxExtFeatures[i].mask)
+			printf("%s ", EcxExtFeatures[i].name);
+
+	printf("\n\n");
 }
 
 void frequencies()

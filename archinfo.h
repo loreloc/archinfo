@@ -402,12 +402,12 @@ const feature_t EcxExtFeatures[ECX_EXT_FEATURES_SIZE] =
 
 const char* BrandStrings[256] =
 {
-	NULL,
+	"<Unknow>",
 	"Intel(R) Celeron(R) processor",
 	"Intel(R) Pentium(R) III processor",
 	"Intel(R) Pentium(R) III Xeon(R) processor",
 	"Intel(R) Pentium(R) III processor",
-	NULL,
+	"<Unknow>",
 	"Mobile Intel(R) Pentium(R) III processor-M",
 	"Mobile Intel(R) Celeron(R) processor",
 	"Intel(R) Pentium(R) 4 processor",
@@ -415,10 +415,10 @@ const char* BrandStrings[256] =
 	"Intel(R) Celeron(R) processor",
 	"Intel(R) Xeon(R) processor",
 	"Intel(R) Xeon(R) processor MP",
-	NULL,
+	"<Unknow>",
 	"Mobile Intel(R) Pentium(R) 4 processor-M",
 	"Intel(R) Celeron(R) processor",
-	NULL,
+	"<Unknow>",
 	"Mobile Genuine Intel(R) processor",
 	"Intel(R) Celeron(R) M processor",
 	"Mobile Intel(R) Celeron(R) processor",
@@ -426,7 +426,7 @@ const char* BrandStrings[256] =
 	"Mobile Genuine Intel(R) processor",
 	"Intel(R) Pentium(R) M processor",
 	"Mobile Intel(R) Celeron(R) processor",
-	NULL
+	"<Unknow>"
 };
 
 const char* CacheTlbDescriptors[256] =
