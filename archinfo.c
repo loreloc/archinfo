@@ -335,7 +335,7 @@ int cache_info(cpu_cache_t* cache, uint32_t subleaf)
 	cache->params_hi = ecx + 1;
 	cache->size = cache->sets * cache->line_size * cache->partitions * cache->ways;
 
-	return eax;
+	return eax & 0x3;
 }
 
 void caches()
