@@ -24,10 +24,10 @@
 #include <stdint.h>
 
 #define CPUID(leaf, a, b, c, d) \
-	__asm__ ("cpuid\n\t" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(leaf))
+	__asm__ __volatile__ ("cpuid\n\t" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(leaf))
 
 #define CPUID_EXT(leaf, subleaf, a, b, c, d) \
-	__asm__ ("cpuid\n\t" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(leaf), "c"(subleaf))
+	__asm__ __volatile__ ("cpuid\n\t" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(leaf), "c"(subleaf))
 
 #define EDX_FEATURES_SIZE     29
 #define ECX_FEATURES_SIZE     30
@@ -71,8 +71,9 @@ typedef union
 typedef struct
 {
 	uint32_t level;
-	uint32_t type;
 	uint32_t size;
+	const char* type;
+	uint32_t mask;
 
 	union
 	{
