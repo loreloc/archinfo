@@ -597,13 +597,14 @@ void topology()
 				printf("   Cache Level %u %s\n", unshared_caches[k].level, unshared_caches[k].type);
 		}
 
-		printf("\n");
+		if(shared_caches_cnt != 0)
+		{
+			printf("\nShared Caches:\n");
 
-		printf("Shared Caches:\n");
-
-		// print the shared caches
-		for(uint32_t k = 0; k < shared_caches_cnt; ++k)
-			printf("   Cache Level %u %s\n", shared_caches[k].level, shared_caches[k].type);
+			// print the shared caches
+			for(uint32_t k = 0; k < shared_caches_cnt; ++k)
+				printf("   Cache Level %u %s\n", shared_caches[k].level, shared_caches[k].type);
+		}
 
 		printf("\n");
 		
