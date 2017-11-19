@@ -43,7 +43,7 @@ uint32_t MaxLeaf = 0;
 uint32_t MaxExtLeaf = 0;
 
 // xcr0 register state
-uint32_t XCR0 = 0;
+uint64_t XCR0 = 0;
 
 // cpu features
 cpu_features_t Features = { 0 };
