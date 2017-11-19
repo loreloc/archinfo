@@ -4,7 +4,7 @@ Archinfo is a software that gathers informations about your x86 processor using 
 At the moment it only supports Intel processors.  
   
 ```
-$ bin/archinfo64
+$ bin/archinfo
 Vendor ID: GenuineIntel
 
 Brand: Intel(R) Core(TM) i5-4460  CPU @ 3.20GHz
