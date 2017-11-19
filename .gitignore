@@ -2,6 +2,9 @@
 *.o
 *.s
 
+.vs
+.vscode
+
 bin
 cmake_install.cmake
 CMakeCache.txt
