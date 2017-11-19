@@ -2,3 +2,10 @@
 *.o
 *.s
 
+bin
+cmake_install.cmake
+CMakeCache.txt
+CopyOfCMakeCache.txt
+CMakeFiles
+Makefile
+
