@@ -75,24 +75,10 @@ typedef struct
 	const char* type;
 	uint32_t mask;
 
-	union
-	{
-		struct
-		{
-			unsigned line_size  : 12;
-			unsigned partitions : 10;
-			unsigned ways       : 10;
-			uint32_t sets;
-		};
-
-		struct
-		{
-			uint32_t params_lo;
-			uint32_t params_hi;
-		};
-
-		uint64_t params;
-	};
+	unsigned line_size  : 12;
+	unsigned partitions : 10;
+	unsigned ways       : 10;
+	uint32_t sets;
 
 } cpu_cache_t;
 

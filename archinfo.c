@@ -258,8 +258,12 @@ int cache_info(cpu_cache_t* cache, uint32_t subleaf)
 
 	cache->level = (eax >> 5) & 0x7;
 	cache->type = CacheTypeStrings[type];
-	cache->params_lo = ebx + 0x401001;
-	cache->params_hi = ecx + 1;
+
+	cache->line_size = (ebx & 0xFFF) + 1;
+	cache->partitions = ((ebx >> 12) & 0x3FF) + 1;
+	cache->ways = (ebx >> 22) + 1;
+	cache->sets = ecx + 1;
+
 	cache->size = cache->sets * cache->line_size * cache->partitions * cache->ways;
 
 	uint32_t max_share = round_next_pow2(((eax >> 14) & 0xFFF) + 1);
