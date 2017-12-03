@@ -104,6 +104,8 @@ void sign_brand_features();
 void ext_features();
 void frequencies();
 void topology();
+void single_core_topology();
+void multi_core_topology();
 void cache_tlb();
 
 
@@ -133,7 +135,10 @@ int main(int argc, char* argv[])
 	frequencies();
 
 	// print informations about the cpu topology
-	topology();
+	if(!Features.edx.htt)
+		single_core_topology();
+	else
+		multi_core_topology();
 
 	// print informations about the cache and the tlb
 	cache_tlb();
@@ -452,174 +457,190 @@ void frequencies()
 	printf("\n");
 }
 
-void topology()
+void single_core_topology()
 {
-	if(!Features.edx.htt || MaxLeaf < 0x4)
+	// print the number of cores and the number of threads
+	printf("Cores: %u\n", 1);
+	printf("Threads: %u\n\n", 1);
+
+	// check the maximum cpuid leaf
+	if(MaxLeaf < 0x4)
+		return;
+
+	uint32_t subleaf = 0;
+	cpu_cache_t cache;
+
+	// retrieve informations about every cache
+	while(cache_info(&cache, subleaf))
 	{
-		printf("Cores: 1\n");
-		printf("Threads: 1\n");
+		// print the cache informations
+		print_cache_info(cache);
+
+		subleaf++;
 	}
-	else
-	{
-		uint32_t eax, ebx, ecx, edx;
+}
 
-		// get the maximum number of logical processors
-		CPUID(0x1, eax, ebx, ecx, edx);
-		uint32_t max_logical_proc = (ebx >> 16) & 0xFF;
+void multi_core_topology()
+{
+	uint32_t eax, ebx, ecx, edx;
 
-		// get the maximum number of physical processors
-		CPUID_EXT(0x4, 0x0, eax, ebx, ecx, edx);
-		uint32_t max_physical_proc = (eax >> 26) + 1;
+	// get the maximum number of logical processors
+	CPUID(0x1, eax, ebx, ecx, edx);
+	uint32_t max_logical_proc = (ebx >> 16) & 0xFF;
 
-		// calculate the mask of the smt sub id
-		uint32_t smt_mask_width = fast_log2(round_next_pow2(max_logical_proc) / max_physical_proc);
-		uint32_t smt_mask = ~((-1) << smt_mask_width);
+	// get the maximum number of physical processors
+	CPUID_EXT(0x4, 0x0, eax, ebx, ecx, edx);
+	uint32_t max_physical_proc = (eax >> 26) + 1;
 
-		// calculate the mask of the core sub id
-		uint32_t core_mask_width = fast_log2(max_physical_proc);
-		uint32_t core_mask = (~((-1) << (core_mask_width + smt_mask_width))) ^ smt_mask;
+	// calculate the mask of the smt sub id
+	uint32_t smt_mask_width = fast_log2(round_next_pow2(max_logical_proc) / max_physical_proc);
+	uint32_t smt_mask = ~((-1) << smt_mask_width);
 
-		uint32_t threads_cnt;
-		uint32_t apic_ids[256];
+	// calculate the mask of the core sub id
+	uint32_t core_mask_width = fast_log2(max_physical_proc);
+	uint32_t core_mask = (~((-1) << (core_mask_width + smt_mask_width))) ^ smt_mask;
+
+	uint32_t threads_cnt;
+	uint32_t apic_ids[256];
 
 #if   defined(_WIN32)
-		// get the number of logical processors
-		SYSTEM_INFO sysinfo;
-		GetSystemInfo(&sysinfo);
-		threads_cnt = sysinfo.dwNumberOfProcessors;
+	// get the number of logical processors
+	SYSTEM_INFO sysinfo;
+	GetSystemInfo(&sysinfo);
+	threads_cnt = sysinfo.dwNumberOfProcessors;
 
-		// get the main thread handle
-		HANDLE thread = GetCurrentThread();
+	// get the main thread handle
+	HANDLE thread = GetCurrentThread();
 
-		// save the original affinity mask
-		DWORD_PTR prev_affinity_mask = SetThreadAffinityMask(thread, 1);
+	// save the previous affinity mask
+	DWORD_PTR prev_affinity_mask = SetThreadAffinityMask(thread, 1);
 
-		// get the first apic id
-		apic_ids[0] = apic_id();
+	// get the first apic id
+	apic_ids[0] = apic_id();
 
-		// for each logical processor get the apic id
-		for(uint32_t i = 1; i < threads_cnt; ++i)
-		{
-			// set the affinity to a logical processor
-			SetThreadAffinityMask(thread, 1 << i);
+	// for each logical processor get the apic id
+	for(uint32_t i = 1; i < threads_cnt; ++i)
+	{
+		// set the affinity to a logical processor
+		SetThreadAffinityMask(thread, 1 << i);
 
-			// get the apic id
-			apic_ids[i] = apic_id();
-		}
+		// get the apic id
+		apic_ids[i] = apic_id();
+	}
 
-		// set the original affinity mask
-		SetThreadAffinityMask(thread, prev_affinity_mask);
+	// set the previous affinity mask
+	SetThreadAffinityMask(thread, prev_affinity_mask);
 #elif defined(__linux__)
-		// get the number of logical processors
-		threads_cnt = sysconf(_SC_NPROCESSORS_ONLN);
+	// get the number of logical processors
+	threads_cnt = sysconf(_SC_NPROCESSORS_ONLN);
 		
-		// get the main thread handle
-		pthread_t thread = pthread_self();
+	// get the main thread handle
+	pthread_t thread = pthread_self();
 
-		cpu_set_t prev_cpu_set;
-		pthread_getaffinity_np(thread, sizeof(cpu_set_t), &prev_cpu_set);
+	// save the previous affinity
+	cpu_set_t prev_cpu_set;
+	pthread_getaffinity_np(thread, sizeof(cpu_set_t), &prev_cpu_set);
 
-		// for each logical procesor get the apic id
-		for(uint32_t i = 0; i < threads_cnt; ++i)
-		{
-			// set the affinity to a logical processor
-			cpu_set_t cpu_set;
-			CPU_ZERO(&cpu_set);
-			CPU_SET(i, &cpu_set);
-			pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpu_set);
+	// for each logical procesor get the apic id
+	for(uint32_t i = 0; i < threads_cnt; ++i)
+	{
+		// set the affinity to a logical processor
+		cpu_set_t cpu_set;
+		CPU_ZERO(&cpu_set);
+		CPU_SET(i, &cpu_set);
+		pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpu_set);
 
-			// get the apic id
-			apic_ids[i] = apic_id();
-		}
+		// get the apic id
+		apic_ids[i] = apic_id();
+	}
 
-		// set the original affinity
-		pthread_setaffinity_np(thread, sizeof(cpu_set_t), &prev_cpu_set);
+	// set the previous affinity
+	pthread_setaffinity_np(thread, sizeof(cpu_set_t), &prev_cpu_set);
 #endif
 
-		uint32_t cores_ids[256];
-		uint32_t cores_cnt = 0;
+	uint32_t cores_ids[256];
+	uint32_t cores_cnt = 0;
 
-		// find the number of cores
-		for(uint32_t i = 0; i < threads_cnt; ++i)
+	// find the number of cores
+	for(uint32_t i = 0; i < threads_cnt; ++i)
+	{
+		// calculate the core id
+		uint32_t core_id = (apic_ids[i] & core_mask) >> smt_mask_width;
+
+		// check for already found core ids
+		if(find(cores_ids, cores_cnt, core_id) == cores_cnt)
 		{
-			// calculate the core id
-			uint32_t core_id = (apic_ids[i] & core_mask) >> smt_mask_width;
+			cores_ids[cores_cnt] = core_id;
 
-			// check for already found core ids
-			if(find(cores_ids, cores_cnt, core_id) == cores_cnt)
-			{
-				cores_ids[cores_cnt] = core_id;
-
-				cores_cnt++;
-			}
+			cores_cnt++;
 		}
-
-		// calculate the package mask
-		uint32_t pkg_mask = core_mask | smt_mask;
-
-		cpu_cache_t cache;
-		uint32_t subleaf = 0;
-
-		// unshared caches array
-		cpu_cache_t unshared_caches[8];
-		uint32_t unshared_caches_cnt = 0;
-
-		// shared caches array
-		cpu_cache_t shared_caches[8];
-		uint32_t shared_caches_cnt = 0;
-
-		// retrieve informations about every cache
-		while(cache_info(&cache, subleaf))
-		{
-			// check if the cache is shared between all the cores
-			if(cache.mask == pkg_mask)
-			{
-				shared_caches[shared_caches_cnt] = cache;
-
-				shared_caches_cnt++;
-			}
-			else
-			{
-				unshared_caches[unshared_caches_cnt] = cache;
-
-				unshared_caches_cnt++;
-			}
-
-			subleaf++;
-		}
-
-		// print the number of cores and the number of threads
-		printf("Cores: %u\n", cores_cnt);
-		printf("Threads: %u\n\n", threads_cnt);
-
-		// print the unshared caches of each core
-		for(uint32_t i = 0; i < cores_cnt; ++i)
-		{
-			printf("Core #%u\n", cores_ids[i]);
-
-			for(uint32_t k = 0; k < unshared_caches_cnt; ++k)
-				printf("   Cache Level %u %s\n", unshared_caches[k].level, unshared_caches[k].type);
-		}
-
-		if(shared_caches_cnt != 0)
-		{
-			printf("\nShared Caches:\n");
-
-			// print the shared caches
-			for(uint32_t k = 0; k < shared_caches_cnt; ++k)
-				printf("   Cache Level %u %s\n", shared_caches[k].level, shared_caches[k].type);
-		}
-
-		printf("\n");
-		
-		// print the details of all the unshared caches
-		for(uint32_t i = 0; i < unshared_caches_cnt; ++i)
-			print_cache_info(unshared_caches[i]);
-
-		// print the details of all the shared caches
-		for(uint32_t i = 0; i < shared_caches_cnt; ++i)
-			print_cache_info(shared_caches[i]);
 	}
+
+	// calculate the package mask
+	uint32_t pkg_mask = core_mask | smt_mask;
+
+	cpu_cache_t cache;
+	uint32_t subleaf = 0;
+
+	// unshared caches array
+	cpu_cache_t unshared_caches[8];
+	uint32_t unshared_caches_cnt = 0;
+
+	// shared caches array
+	cpu_cache_t shared_caches[8];
+	uint32_t shared_caches_cnt = 0;
+
+	// retrieve informations about every cache
+	while(cache_info(&cache, subleaf))
+	{
+		// check if the cache is shared between all the cores
+		if(cache.mask == pkg_mask)
+		{
+			shared_caches[shared_caches_cnt] = cache;
+
+			shared_caches_cnt++;
+		}
+		else
+		{
+			unshared_caches[unshared_caches_cnt] = cache;
+
+			unshared_caches_cnt++;
+		}
+
+		subleaf++;
+	}
+
+	// print the number of cores and the number of threads
+	printf("Cores: %u\n", cores_cnt);
+	printf("Threads: %u\n\n", threads_cnt);
+
+	// print the unshared caches of each core
+	for(uint32_t i = 0; i < cores_cnt; ++i)
+	{
+		printf("Core #%u\n", cores_ids[i]);
+
+		for(uint32_t k = 0; k < unshared_caches_cnt; ++k)
+			printf("   Cache Level %u %s\n", unshared_caches[k].level, unshared_caches[k].type);
+	}
+
+	if(shared_caches_cnt != 0)
+	{
+		printf("\nShared Caches:\n");
+
+		// print the shared caches
+		for(uint32_t k = 0; k < shared_caches_cnt; ++k)
+			printf("   Cache Level %u %s\n", shared_caches[k].level, shared_caches[k].type);
+	}
+
+	printf("\n");
+		
+	// print the details of all the unshared caches
+	for(uint32_t i = 0; i < unshared_caches_cnt; ++i)
+		print_cache_info(unshared_caches[i]);
+
+	// print the details of all the shared caches
+	for(uint32_t i = 0; i < shared_caches_cnt; ++i)
+		print_cache_info(shared_caches[i]);
 }
 
 void cache_tlb()
