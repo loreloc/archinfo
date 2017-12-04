@@ -194,6 +194,7 @@ const char* microarch_info(uint32_t model_num)
 		return "Haswell - 22 nm";
 	case 0x3D:
 		return "Broadwell - 14 nm";
+	case 0x55:
 	case 0x5E:
 		return "Skylake - 14 nm";
 	case 0x8E:
