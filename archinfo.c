@@ -189,6 +189,7 @@ const char* microarch_info(uint32_t model_num)
 	case 0x2D:
 		return "SandyBridge - 32 nm";
 	case 0x3A:
+	case 0x3E:
 		return "IvyBridge - 22 nm";
 	case 0x3C:
 	case 0x3F:
