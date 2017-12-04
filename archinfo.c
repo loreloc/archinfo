@@ -150,6 +150,7 @@ const char* microarch_info(uint32_t model_num)
 {
 	// https://software.intel.com/en-us/articles/intel-architecture-and-processor-identification-with-cpuid-model-and-family-numbers
 	// https://en.wikipedia.org/wiki/List_of_Intel_CPU_microarchitectures
+	// http://instlatx64.atw.hu/
 	//
 	// TODO: Older microarchitectures identification
 
@@ -195,6 +196,7 @@ const char* microarch_info(uint32_t model_num)
 		return "Broadwell - 14 nm";
 	case 0x5E:
 		return "Skylake - 14 nm";
+	case 0x8E:
 	case 0x9E:
 		return "KabyLake - 14 nm";
 
