@@ -14,6 +14,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 # archinfo executable file
 add_executable(archinfo archinfo.c)
 
+# link pthread library
+if(UNIX)
+	target_link_libraries(archinfo -lpthread)
+endif()
+
 # installation
 install(TARGETS archinfo RUNTIME DESTINATION bin)
 
